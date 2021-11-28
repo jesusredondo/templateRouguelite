@@ -8,7 +8,6 @@ Engine::Engine() {
   TCODConsole::initRoot(MAPA_ANCHO, MAPA_ALTO, "libtcod C++ tutorial", false);
   player = new Actor(40, 25, '@', TCODColor::white);
   actors.push(player);
-  actors.push(new Actor(60, 13, '@', TCODColor::yellow));
   map = new Map(MAPA_ANCHO, MAPA_ALTO);
 }
 
@@ -54,16 +53,13 @@ void Engine::render() {
   // TCODList guarda punteros a actores. Como actors.begin devuelve un puntero a el primer elemento, en verdad tenemos
   // un puntero a un puntero. Con (*iterator) vamos de puntero a puntero de Actor hasta puntero de actor. Empleamos la
   // operación -> para acceder a ese elemento. Pinters hell in C++!
-  for (Actor** iterator = actors.begin(); iterator != actors.end(); iterator++) {
-    (*iterator)->render();
-  }
-
+  /* for (Actor** iterator = actors.begin(); iterator != actors.end(); iterator++) {
+     (*iterator)->render();
+   }
+ */
   // Otra manera más sencilla, ya que nos estamos moviendo por todos los elementos:
   // draw the actors
-  /*for (auto actor : actors) {
+  for (auto actor : actors) {
     actor->render();
   }
-*/
-
-  player->render();
 }

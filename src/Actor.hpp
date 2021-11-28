@@ -1,5 +1,8 @@
 #include "libtcod.hpp"
 
+#ifndef ROUGUELITE_ACTOR
+#define ROUGUELITE_ACTOR
+
 class Actor {
  public:
   int x, y;  // Posición en la consola.
@@ -10,3 +13,5 @@ class Actor {
   Actor(int x, int y, int ch, const TCODColor& color);
   void render() const;  // lo ponemos como const para que nos aseguremos que no se cambian valores en este método.
 };
+
+#endif

@@ -1,5 +1,9 @@
 
 #include "libtcod.hpp"
+
+#ifndef ROUGUELITE_ENGINE
+#define ROUGUELITE_ENGINE
+
 #define MAPA_ANCHO 80
 #define MAPA_ALTO 55
 
@@ -21,4 +25,6 @@ class Engine {
   void render();
 };
 
-extern Engine engine;  // Variable global para cualquiera que incluta esta cabecera
+extern Engine engine;  // Variable global para cualquiera que incluya esta cabecera
+
+#endif
