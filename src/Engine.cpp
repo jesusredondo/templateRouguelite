@@ -14,11 +14,16 @@ Engine::Engine(int screenWidth, int screenHeight): fovRadius(FOVRADIOUS_INICIAL)
 
 
   map = new Map(ANCHO_MAPA, ALTO_MAPA);
+  gui = new Gui();
+
+  gui->message(TCODColor::red,"Bienvenido!\nDisfruta de la mazmorra, mientras puedas.");
+
   map->computeFov();
 }
 
 Engine::~Engine( ){
   delete map;
+  delete gui;
   actors.clearAndDelete();
 }
 
@@ -64,7 +69,9 @@ void Engine::render(){
   player->render();
 
   //Renderizamos la GUI:
-  TCODConsole::root->print(1,screenHeight-2, "HP(%s) : %d/%d",player->name.c_str(),(int)player->destructible->hp,(int)player->destructible->maxHp);
+  gui->render();
+
+
   TCODConsole::flush();
 }
 

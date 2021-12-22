@@ -43,7 +43,7 @@ bool PlayerAi::moveOrAttack(Actor *owner, int targetx, int targety) {
         owner->attacker->attack(owner, actorAux);
         return false; //No seguimos checkeando, ya te has topado con un enemigo y le atacas
       } else{
-        std::cout<<"Hay un cadáver de "<<actorAux->name<<" aquí"<<std::endl;
+        engine.gui->message(TCODColor::lightGrey,"Hay un cadáver de %s aquí",actorAux->name.c_str());
       }
     }
   }
