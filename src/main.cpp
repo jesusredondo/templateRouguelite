@@ -1,15 +1,11 @@
-#include "Actor.hpp"
-#include "Engine.hpp"
-#include "Map.hpp"
-#include "libtcod.hpp"
-
-Engine engine;
+#include "main.hpp"
+Engine engine(ANCHO_PANTALLA,ALTO_PANTALLA);
 
 int main() {
-  while (!TCODConsole::isWindowClosed()) {
-    engine.update();
-    engine.render();
-    TCODConsole::flush();
+
+  while ( !TCODConsole::isWindowClosed() ) {
+      engine.update();
+      engine.render();
   }
-  return 0;
+  return  0;
 }

@@ -1,73 +1,184 @@
-#include "Map.hpp"
+#include "main.hpp"
 
-#include "Actor.hpp"
-#include "BSPListener.hpp"
-#include "Engine.hpp"
-#include "libtcod.hpp"
 
-// Podemos añadir constantes que sólo viven dentro de este CPP:
-static const int ROOM_MAX_SIZE = 12;  // Con static en un CPP sólo existen para este fichero
+static const int ROOM_MAX_SIZE = 12;
 static const int ROOM_MIN_SIZE = 6;
 
-Map::Map(int width, int height) {
-  this->width = width;
-  this->height = height;
-  this->tiles = new Tile[this->width * this->height];  // Más sencillo de crear
+static const int MAX_ROOM_MONSTERS = 3;
 
-  TCODBsp bsp(0, 0, this->width, this->height);
-  bsp.splitRecursive(NULL, 8, ROOM_MAX_SIZE, ROOM_MAX_SIZE, 1.5f, 1.5f);
+
+class BspListener : public ITCODBspCallback {
+private :
+    Map &map; // a map to dig //No puede ser un puntero a null
+    int roomNum; // room number
+    int lastx,lasty; // center of the last room
+public :
+    BspListener(Map &map) : map(map), roomNum(0) {}
+    bool visitNode(TCODBsp *node, void *userData) {
+    	if ( node->isLeaf() ) {
+    		int x,y,w,h;
+        TCODRandom *rng=TCODRandom::getInstance();
+        w=rng->getInt(ROOM_MIN_SIZE, node->w-2);
+        h=rng->getInt(ROOM_MIN_SIZE, node->h-2);
+        x=rng->getInt(node->x+1, node->x+node->w-w-1);
+        y=rng->getInt(node->y+1, node->y+node->h-h-1);
+        map.createRoom(roomNum == 0, x, y, x+w-1, y+h-1);
+        if ( roomNum != 0 ) {
+          // dig a corridor from last room
+          map.dig(lastx,lasty,x+w/2,lasty);
+          map.dig(x+w/2,lasty,x+w/2,y+h/2);
+        }
+        lastx=x+w/2;
+        lasty=y+h/2;
+        roomNum++;
+      }
+      return true;
+    }
+};
+
+
+Map::Map(int width, int height): width(width), height(height){
+  //Habrá que inicializar el tiles:
+  tiles = new Tile[width*height];
+  map = new TCODMap(width,height);
+
+  //Creamos el mapa aleatorio
+  TCODBsp bsp(0,0,width,height);
+  bsp.splitRecursive(NULL,8,ROOM_MAX_SIZE,ROOM_MAX_SIZE,1.5f,1.5f);
   BspListener listener(*this);
-  bsp.traverseInvertedLevelOrder(&listener, NULL);
-}
+  bsp.traverseInvertedLevelOrder(&listener,NULL);
 
-Map::~Map() { /*delete[] tiles;*/
-}
+};
 
-bool Map::isWall(int x, int y) const { return !tiles[x + y * width].canWalk; }
+Map::~Map(){
+  delete map;
+  delete[] tiles;
+};
+bool Map::isWall(int x, int y) const{
+  return !map->isWalkable(x,y);
+};
 
-void Map::render() const {
-  // Estáticas para que no se creen cada vez que se llama al método.
-  // Constantes, no van a cambiar, también optimiza.
-  static const TCODColor darkWall(0, 0, 100);
-  static const TCODColor darkGround(50, 50, 150);
+void Map::render() const{
+  static const TCODColor darkGround(50,50,150);
+  static const TCODColor darkWall(0,0,100);
+  static const TCODColor lightWall(130,110,50);
+  static const TCODColor lightGround(200,180,50);
 
-  for (int x = 0; x < width; x++) {
-    for (int y = 0; y < height; y++) {
-      TCODConsole::root->setCharBackground(x, y, isWall(x, y) ? darkWall : darkGround);
+  for (int x = 0; x < width; x++){
+    for (int y = 0; y < height; y++)
+    {
+      if ( isInFov(x,y) ) {
+           TCODConsole::root->setCharBackground(x,y, isWall(x,y) ? lightWall :lightGround );
+       } else if ( isExplored(x,y) ) {
+           TCODConsole::root->setCharBackground(x,y, isWall(x,y) ? darkWall : darkGround );
+       }
     }
   }
-}
+};
 
-void Map::dig(int x1, int y1, int x2, int y2) {
-  if (x2 < x1) {  // Si el punto 2 está más a la izquierda, swapeamos valores
-    int tmp = x2;
-    x2 = x1;
-    x1 = tmp;
+
+void Map::dig(int x_inicial, int y_inicial, int x_final, int y_final){
+    //Swapear si inicial > final
+    if(x_inicial > x_final){
+      int aux = x_inicial;
+      x_inicial = x_final;
+      x_final = aux;
+    }
+
+    if(y_inicial > y_final){
+      int aux = y_inicial;
+      y_inicial = y_final;
+      y_final = aux;
+    }
+
+    //Por último, marcamos el agujero:
+    for(int x = x_inicial; x <= x_final; x++){
+      for(int y = y_inicial; y <= y_final; y++){
+        setWalkable(x,y);
+      }
+    }
+};
+
+void Map::createRoom(bool first, int x1, int y1, int x2, int y2){
+  dig(x1,y1,x2,y2);
+  if(first){
+    //Movemos el actor principal
+    engine.player->x = (x1+x2)/2;
+    engine.player->y = (y1+y2)/2;
+  }else{
+      //Añadir un NPC:
+      TCODRandom *rng=TCODRandom::getInstance();
+      int numMonstruos = rng->getInt(0,MAX_ROOM_MONSTERS);
+      while(numMonstruos>0){
+        //aleatorio en X e y;
+        int xNew = rng->getInt(x1,x2);
+        int yNew = rng->getInt(y1,y2);
+        if(canWalk(xNew,yNew)){
+          addMonster(xNew, yNew);
+          numMonstruos--;
+        }
+      }
   }
-  if (y2 < y1) {  // si el punto 2 está más arriba, swapeamos valores
-    int tmp = y2;
-    y2 = y1;
-    y1 = tmp;
+};
+
+
+bool Map::isInFov(int x, int y) const{
+  if(map->isInFov(x,y)){
+    tiles[x+y*width].explored = true;
+    return true;
   }
-  // Recorremos todos los tiles entre esos dos puntos y los marcamos como "no paredes".
-  for (int tilex = x1; tilex <= x2; tilex++) {
-    for (int tiley = y1; tiley <= y2; tiley++) {
-      tiles[tilex + tiley * width].canWalk = true;
+  return false;
+};
+
+bool Map::isExplored(int x, int y) const{
+  return tiles[x+y*width].explored;
+};
+
+void Map::computeFov(){
+  map->computeFov(engine.player->x, engine.player->y, engine.fovRadius);
+};
+
+
+bool Map::canWalk(int x, int y) const{
+  if(isWall(x,y)){
+    return false;
+  }
+
+  for(Actor* actorAux : engine.actors){
+    if(actorAux->blocks && actorAux->x == x && actorAux->y == y){
+      return false;
     }
   }
-}
+  return true;
+};
 
-void Map::createRoom(bool first, int x1, int y1, int x2, int y2) {
-  dig(x1, y1, x2, y2);  // Agujereamos
-  if (first) {
-    // Si viene a verdadero es que es la primera habitación y hay que colocar al actor principal
-    engine.player->x = (x1 + x2) / 2;
-    engine.player->y = (y1 + y2) / 2;
-  } else {
-    // Si no se coloca a un NPC de amarillo
-    TCODRandom* rng = TCODRandom::getInstance();
-    if (rng->getInt(0, 3) == 0) {
-      engine.actors.push(new Actor((x1 + x2) / 2, (y1 + y2) / 2, '@', TCODColor::yellow));
-    }
+
+void Map::addMonster(int x, int y){
+  TCODRandom* rng = TCODRandom::getInstance();
+  int aleatorioMostruo = rng->getInt(0, 5);
+
+  if(aleatorioMostruo == 0){
+
+    Actor* troll = new Actor(x, y, 'T', "Troll", TCODColor::darkerGreen);
+    troll->destructible = new MonsterDestructible(16, 1,"Troll muerto");
+    troll->attacker = new Attacker(4);
+    troll->ai = new MonsterAi();
+    engine.actors.push(troll);
+  } else{
+
+    Actor* ogro = new Actor(x, y, 'O', "Ogro", TCODColor::desaturatedGreen);
+    ogro->destructible = new MonsterDestructible(10,0,"Ogro muerto");
+    ogro->attacker = new Attacker(3);
+    ogro->ai = new MonsterAi();
+    engine.actors.push(ogro);
   }
-}
+};
+
+void Map::setWall(int x, int y){
+  map->setProperties(x, y, false, false );
+};
+
+
+void Map::setWalkable(int x, int y){
+  map->setProperties(x, y, true, true ); // Para hacer modificaciones!
+};

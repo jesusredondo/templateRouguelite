@@ -1,30 +1,38 @@
+#include "main.hpp"
 
-#include "libtcod.hpp"
 
-#ifndef ROUGUELITE_ENGINE
-#define ROUGUELITE_ENGINE
+#pragma once
+#define FOVRADIOUS_INICIAL 10
 
-#define MAPA_ANCHO 80
-#define MAPA_ALTO 55
+#define ANCHO_PANTALLA 80
+#define ALTO_PANTALLA 50
 
-// No hace falta que las incluyamos, pero sí tenemos que definirlos para que sepa el compilador que existe
-// Más tarde se definirán:
+class Engine{
+public:
 
-class Actor;
-class Map;
+  enum GameStatus {
+    STARTUP,  // Estado inicial, preparar el juego.
+    IDLE,  // Estás parado, no hay nada que procesar
+    NEW_TURN,  // Te movistes, hay que procesar.
+    VICTORY,  // Has ganado
+    DEFEAT  // Has perdido
+  } gameStatus;  // Declaramos una variable
 
-class Engine {
- public:
+
+  Map* map;
   TCODList<Actor*> actors;
   Actor* player;
-  Map* map;
+  int fovRadius;
 
-  Engine();
+  int screenWidth;
+  int screenHeight;
+  TCOD_key_t lastKey;
+
+  Engine(int screenWidth, int screenHeight);
   ~Engine();
   void update();
-  void render();
+  void render() ;
+  void sendToBack(Actor *actor);
 };
 
-extern Engine engine;  // Variable global para cualquiera que incluya esta cabecera
-
-#endif
+extern Engine engine;
